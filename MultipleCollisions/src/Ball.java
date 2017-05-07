@@ -1,4 +1,5 @@
 
+import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.geom.Ellipse2D;
@@ -13,12 +14,16 @@ public class Ball {
     private float radius;
     private float mass;
 
-    public Ball(float x, float y, float radius) {
+    private Color color;
+
+    public Ball(float x, float y, float radius, Color color) {
         this.x = x;
         this.y = y;
 
         this.radius = radius;
         this.mass = (float) (Math.PI * radius * radius);
+
+        this.color = color;
     }
 
     /*
@@ -30,7 +35,9 @@ public class Ball {
         Ellipse2D.Double circle = new Ellipse2D.Double(
                 this.getX() - this.getRadius(), this.getY() - this.getRadius(),
                 this.getRadius() * 2, this.getRadius() * 2);
+        g2d.setColor(this.color);
         g2d.fill(circle);
+
     }
 
     /*
@@ -46,7 +53,8 @@ public class Ball {
         if (this.getX() - this.getRadius() < 0) {
             this.setX(this.getRadius());
             this.setxSpeed(-this.getxSpeed());
-        } else if (this.getX() + this.getRadius() > CollectionOfBalls.WINDOWWIDTH) {
+        } else if (this.getX()
+                + this.getRadius() > CollectionOfBalls.WINDOWWIDTH) {
             this.setX(CollectionOfBalls.WINDOWWIDTH - this.getRadius());
             this.setxSpeed(-this.getxSpeed());
         }
@@ -58,7 +66,8 @@ public class Ball {
         if (this.getY() - this.getRadius() < 0) {
             this.setY(this.getRadius());
             this.setySpeed(-this.getySpeed());
-        } else if (this.getY() + this.getRadius() > CollectionOfBalls.WINDOWHEIGHT) {
+        } else if (this.getY()
+                + this.getRadius() > CollectionOfBalls.WINDOWHEIGHT) {
             this.setY(CollectionOfBalls.WINDOWHEIGHT - this.getRadius());
             this.setySpeed(-this.getySpeed());
         }
