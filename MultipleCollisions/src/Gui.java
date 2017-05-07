@@ -1,3 +1,4 @@
+import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Point;
 import java.awt.event.MouseAdapter;
@@ -10,14 +11,18 @@ import javax.swing.JPanel;
 public class Gui extends JPanel implements Runnable {
 
     // Keeps follow's mouse clicks
-    private Point lastPoint = new Point(0, 0);
+    private Point lastPoint = new Point(CollectionOfBalls.WINDOWWIDTH / 2,
+            CollectionOfBalls.WINDOWHEIGHT / 2);
 
     private static final int NUMBEROFBALLS = 30;
     private static final float MAXRADIUS = 70;
+    private static final float MINRADIUS = 10;
     private static final float MAXSTARTSPEED = 2;
+    private static final float PLAYERBALLSPEED = 20;
+    private static final float ALLOWEDOFFSET = 10;
 
     // Stores all "normal"(non-player) balls
-    ArrayList ballList;
+    ArrayList<Ball> ballList;
     Ball playerBall;
     boolean running = true;
 
@@ -38,17 +43,16 @@ public class Gui extends JPanel implements Runnable {
             @Override
             public void mouseDragged(MouseEvent e) {
                 Graphics g = Gui.this.getGraphics();
-
-                Gui.this.playerBall.setX(Gui.this.lastPoint.x);
-                Gui.this.playerBall.setY(Gui.this.lastPoint.y);
-
                 Gui.this.lastPoint = new Point(e.getX(), e.getY());
                 g.dispose();
             }
         });
 
         /* Creating the ball controlled by the player */
-        this.playerBall = new Ball(50, 80, 20);
+        this.playerBall = new Ball(CollectionOfBalls.WINDOWWIDTH / 2,
+                CollectionOfBalls.WINDOWHEIGHT / 2, 20, Color.GRAY);
+        this.playerBall.setxSpeed(2);
+        this.playerBall.setySpeed(2);
 
         /* Initializing list of non-player balls, then populating it */
         this.ballList = new ArrayList<Ball>();
@@ -56,7 +60,7 @@ public class Gui extends JPanel implements Runnable {
             Ball newBall = new Ball(
                     (float) Math.random() * CollectionOfBalls.WINDOWWIDTH,
                     (float) Math.random() * CollectionOfBalls.WINDOWHEIGHT,
-                    (float) Math.random() * MAXRADIUS);
+                    (float) Math.random() * MAXRADIUS + MINRADIUS, Color.BLACK);
             newBall.setxSpeed(
                     (float) (((Math.random() - 1) * 2) * MAXSTARTSPEED));
             newBall.setySpeed(
@@ -70,7 +74,7 @@ public class Gui extends JPanel implements Runnable {
             for (int i = 0; i < this.ballList.size()
                     && ballDoesNotCollide; i++) {
                 ballDoesNotCollide = !(this.checkCollision(newBall,
-                        (Ball) this.ballList.get(i)));
+                        this.ballList.get(i)));
             }
             if (ballDoesNotCollide) {
                 this.ballList.add(newBall);
@@ -88,7 +92,7 @@ public class Gui extends JPanel implements Runnable {
         /* Draws all balls, player and non-player */
         this.playerBall.draw(g);
         for (int i = 0; i < this.ballList.size(); i++) {
-            ((Ball) this.ballList.get(i)).draw(g);
+            this.ballList.get(i).draw(g);
         }
     }
 
@@ -98,19 +102,17 @@ public class Gui extends JPanel implements Runnable {
 
             /* Move each non-player ball */
             for (int i = 0; i < this.ballList.size(); i++) {
-                ((Ball) this.ballList.get(i)).move();
+                this.ballList.get(i).move();
             }
 
             /* Move player ball */
-            this.playerBall.setX(this.lastPoint.x);
-            this.playerBall.setY(this.lastPoint.y);
+            this.movePlayerBall();
 
             /* Check for collisions between player ball and normal balls */
             for (int i = 0; i < this.ballList.size(); i++) {
                 if (this.checkCollision(this.playerBall,
-                        (Ball) this.ballList.get(i))) {
-                    this.makeCollision(this.playerBall,
-                            (Ball) this.ballList.get(i));
+                        this.ballList.get(i))) {
+                    this.makeCollision(this.playerBall, this.ballList.get(i));
                 }
 
             }
@@ -118,10 +120,10 @@ public class Gui extends JPanel implements Runnable {
             /* Checking for collisions between two normal balls */
             for (int i = 0; i < this.ballList.size(); i++) {
                 for (int j = i + 1; j < this.ballList.size(); j++) {
-                    if (this.checkCollision((Ball) this.ballList.get(i),
-                            (Ball) this.ballList.get(j))) {
-                        this.makeCollision((Ball) this.ballList.get(i),
-                                (Ball) this.ballList.get(j));
+                    if (this.checkCollision(this.ballList.get(i),
+                            this.ballList.get(j))) {
+                        this.makeCollision(this.ballList.get(i),
+                                this.ballList.get(j));
 
                     }
                 }
@@ -134,6 +136,54 @@ public class Gui extends JPanel implements Runnable {
             } catch (InterruptedException ex) {
             }
         }
+    }
+
+    private void movePlayerBall() {
+
+        /*
+         * Getting absolute value of the difference between the cursor and the
+         * player's ball, in x and y
+         */
+        float xDif = Math.abs(this.lastPoint.x - this.playerBall.getX());
+        float yDif = Math.abs(this.lastPoint.y - this.playerBall.getY());
+
+        //I was so surprised this worked: it's been years since I've used trigonometry
+        /*
+         * PLAYERSPEED * cos(atan(xDif / YDif) gives optimal speed in x
+         * direction
+         */
+        float newPlayerXSpeed = (float) (this.PLAYERBALLSPEED
+                * Math.cos(Math.atan(yDif / xDif)));
+        /*
+         * PLAYERSPEED * sin(atan(xDif / YDif) gives optimal speed in y
+         * direction
+         */
+        float newPlayerYSpeed = (float) (this.PLAYERBALLSPEED
+                * Math.sin(Math.atan(yDif / xDif)));
+
+        if (this.lastPoint.x > this.playerBall.getX()) {
+            this.playerBall.setxSpeed(newPlayerXSpeed);
+        } else if (this.lastPoint.x < this.playerBall.getX()) {
+            this.playerBall.setxSpeed(-newPlayerXSpeed);
+        }
+
+        if (this.lastPoint.y > this.playerBall.getY()) {
+            this.playerBall.setySpeed(newPlayerYSpeed);
+        } else if (this.lastPoint.y < this.playerBall.getY()) {
+            this.playerBall.setySpeed(-newPlayerYSpeed);
+        }
+
+        if (Math.abs(
+                this.playerBall.getX() - this.lastPoint.x) < ALLOWEDOFFSET) {
+            this.playerBall.setxSpeed(0);
+        }
+
+        if (Math.abs(
+                this.playerBall.getY() - this.lastPoint.y) < ALLOWEDOFFSET) {
+            this.playerBall.setySpeed(0);
+        }
+        this.playerBall.move();
+
     }
 
     /**
