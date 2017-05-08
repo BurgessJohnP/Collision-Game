@@ -147,4 +147,8 @@ public class Ball {
         return this.mass;
     }
 
+    public void setColor(Color color) {
+        this.color = color;
+    }
+
 }

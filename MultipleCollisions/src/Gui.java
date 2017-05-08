@@ -5,6 +5,8 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.swing.JPanel;
 
@@ -14,15 +16,22 @@ public class Gui extends JPanel implements Runnable {
     private Point lastPoint = new Point(CollectionOfBalls.WINDOWWIDTH / 2,
             CollectionOfBalls.WINDOWHEIGHT / 2);
 
-    private static final int NUMBEROFBALLS = 30;
-    private static final float MAXRADIUS = 70;
+    private static final int NUMBEROFBALLS = 100;
+    private static final float MAXRADIUS = 20;
     private static final float MINRADIUS = 10;
     private static final float MAXSTARTSPEED = 2;
     private static final float PLAYERBALLSPEED = 20;
     private static final float ALLOWEDOFFSET = 10;
 
     // Stores all "normal"(non-player) balls
-    ArrayList<Ball> ballList;
+    ArrayList<Ball> normalBallList;
+    // Stores all balls that the player controls
+    ArrayList<Ball> playerBallList;
+
+    // Stores distance away from initial player ball of all player balls
+    // This allows these ball to stay a constant distance from the player
+    Map<Ball, float[]> playerBallDistance;
+
     Ball playerBall;
     boolean running = true;
 
@@ -51,12 +60,10 @@ public class Gui extends JPanel implements Runnable {
         /* Creating the ball controlled by the player */
         this.playerBall = new Ball(CollectionOfBalls.WINDOWWIDTH / 2,
                 CollectionOfBalls.WINDOWHEIGHT / 2, 20, Color.GRAY);
-        this.playerBall.setxSpeed(2);
-        this.playerBall.setySpeed(2);
 
         /* Initializing list of non-player balls, then populating it */
-        this.ballList = new ArrayList<Ball>();
-        while (this.ballList.size() < NUMBEROFBALLS) {
+        this.normalBallList = new ArrayList<Ball>();
+        while (this.normalBallList.size() < NUMBEROFBALLS) {
             Ball newBall = new Ball(
                     (float) Math.random() * CollectionOfBalls.WINDOWWIDTH,
                     (float) Math.random() * CollectionOfBalls.WINDOWHEIGHT,
@@ -71,15 +78,18 @@ public class Gui extends JPanel implements Runnable {
              * any of the already created balls
              */
             boolean ballDoesNotCollide = true;
-            for (int i = 0; i < this.ballList.size()
+            for (int i = 0; i < this.normalBallList.size()
                     && ballDoesNotCollide; i++) {
                 ballDoesNotCollide = !(this.checkCollision(newBall,
-                        this.ballList.get(i)));
+                        this.normalBallList.get(i)));
             }
             if (ballDoesNotCollide) {
-                this.ballList.add(newBall);
+                this.normalBallList.add(newBall);
             }
         }
+        this.playerBallList = new ArrayList<Ball>();
+        this.playerBallList.add(this.playerBall);
+        this.playerBallDistance = new HashMap<Ball, float[]>();
 
         this.animator = new Thread(this);
         this.animator.start();
@@ -91,8 +101,8 @@ public class Gui extends JPanel implements Runnable {
 
         /* Draws all balls, player and non-player */
         this.playerBall.draw(g);
-        for (int i = 0; i < this.ballList.size(); i++) {
-            this.ballList.get(i).draw(g);
+        for (int i = 0; i < this.normalBallList.size(); i++) {
+            this.normalBallList.get(i).draw(g);
         }
     }
 
@@ -100,31 +110,31 @@ public class Gui extends JPanel implements Runnable {
     public void run() {
         while (this.running) {
 
-            /* Move each non-player ball */
-            for (int i = 0; i < this.ballList.size(); i++) {
-                this.ballList.get(i).move();
+            /* Move each non-player ball and check for wall collisions */
+            for (int i = 0; i < this.normalBallList.size(); i++) {
+                this.normalBallList.get(i).move();
+                //this.checkAndDoWallCollision((this.normalBallList.get(i)));
             }
 
             /* Move player ball */
             this.movePlayerBall();
 
             /* Check for collisions between player ball and normal balls */
-            for (int i = 0; i < this.ballList.size(); i++) {
+            for (int i = 0; i < this.normalBallList.size(); i++) {
                 if (this.checkCollision(this.playerBall,
-                        this.ballList.get(i))) {
-                    this.makeCollision(this.playerBall, this.ballList.get(i));
+                        this.normalBallList.get(i))) {
+                    this.makeCollision(this.playerBall,
+                            this.normalBallList.get(i));
                 }
-
             }
 
             /* Checking for collisions between two normal balls */
-            for (int i = 0; i < this.ballList.size(); i++) {
-                for (int j = i + 1; j < this.ballList.size(); j++) {
-                    if (this.checkCollision(this.ballList.get(i),
-                            this.ballList.get(j))) {
-                        this.makeCollision(this.ballList.get(i),
-                                this.ballList.get(j));
-
+            for (int i = 0; i < this.normalBallList.size(); i++) {
+                for (int j = i + 1; j < this.normalBallList.size(); j++) {
+                    if (this.checkCollision(this.normalBallList.get(i),
+                            this.normalBallList.get(j))) {
+                        this.makeCollision(this.normalBallList.get(i),
+                                this.normalBallList.get(j));
                     }
                 }
             }
@@ -139,6 +149,9 @@ public class Gui extends JPanel implements Runnable {
     }
 
     private void movePlayerBall() {
+
+        /* First check if in wall */
+        //this.checkAndDoWallCollision(this.playerBall);
 
         /*
          * Getting absolute value of the difference between the cursor and the
@@ -182,8 +195,13 @@ public class Gui extends JPanel implements Runnable {
                 this.playerBall.getY() - this.lastPoint.y) < ALLOWEDOFFSET) {
             this.playerBall.setySpeed(0);
         }
-        this.playerBall.move();
 
+        this.playerBall.move();
+        for (int i = 1; i < this.playerBallList.size(); i++) {
+            Ball b = this.playerBallList.get(i);
+            b.setX(this.playerBall.getX() + this.playerBallDistance.get(b)[0]);
+            b.setY(this.playerBall.getY() + this.playerBallDistance.get(b)[1]);
+        }
     }
 
     /**
@@ -194,7 +212,7 @@ public class Gui extends JPanel implements Runnable {
      * @return true if the distance between the centers of the balls is less
      *         than the sum of their radii, false otherwise
      */
-    public boolean checkCollision(Ball b1, Ball b2) {
+    private boolean checkCollision(Ball b1, Ball b2) {
         double deltaX;
         double deltaY;
         double distance;
@@ -215,13 +233,39 @@ public class Gui extends JPanel implements Runnable {
      *            of b1 and b2 as if an elastic collision had occurred between
      *            them
      */
-    public void makeCollision(Ball b1, Ball b2) {
-        if (b1 == this.playerBall) {
-            b2.setxSpeed(-b2.getxSpeed());
-            b2.setySpeed(-b2.getySpeed());
+    private void makeCollision(Ball b1, Ball b2) {
+
+        /* Player ball colliding with non-player ball */
+        // I used a XOR operator here, and I am so proud of finding an actual use for XOR
+        if ((this.playerBallList.contains(b1)
+                ^ this.playerBallList.contains(b2))) {
+            // If it is the first ball that is the player's and the second not
+            if (this.playerBallList.contains(b1)) {
+                // add the second ball to the player list
+                this.playerBallList.add(b2);
+                // and change its color
+                b2.setColor(Color.gray);
+                // and add its distance to the map
+                float dist[] = { b2.getX() - this.playerBall.getX(),
+                        b2.getY() - this.playerBall.getY() };
+                this.playerBallDistance.put(b2, dist);
+
+            } else /*
+                    * If it is the second ball that is the player's and the
+                    * first not
+                    */ {
+                // add the first ball to the player list
+                this.playerBallList.add(b1);
+                // and change its color
+                b1.setColor(Color.gray);
+                // and add its distance to the map
+                float dist[] = { b1.getX() - this.playerBall.getX(),
+                        b1.getY() - this.playerBall.getY() };
+                this.playerBallDistance.put(b1, dist);
+            }
+
         } else /* Normal elastic collision */ {
             /* v1f = [v1(m1 - m2) + 2(m2v2)] / (m1 + m2) */
-
             float newXVel1 = (b1.getxSpeed() * (b1.getMass() - b2.getMass())
                     + (2 * b2.getMass() * b2.getxSpeed()))
                     / (b1.getMass() + b2.getMass());
@@ -230,7 +274,6 @@ public class Gui extends JPanel implements Runnable {
                     / (b1.getMass() + b2.getMass());
 
             /* v2f = [v2(m2 - m1) + 2(m1v1)] / (m1 + m2) */
-
             float newXVel2 = (b2.getxSpeed() * (b2.getMass() - b1.getMass())
                     + (2 * b1.getMass() * b1.getxSpeed()))
                     / (b1.getMass() + b2.getMass());
@@ -246,5 +289,24 @@ public class Gui extends JPanel implements Runnable {
 
         }
     }
+
+    /*
+     * private boolean checkAndDoWallCollision(Ball b1) { boolean inWall =
+     * false;
+     *
+     * if (b1.getX() - b1.getRadius() < 0) { b1.setX(b1.getRadius());
+     * b1.setxSpeed(-b1.getxSpeed()); inWall = true; } else if (b1.getX() +
+     * b1.getRadius() > CollectionOfBalls.WINDOWWIDTH) {
+     * b1.setX(CollectionOfBalls.WINDOWWIDTH - b1.getRadius());
+     * b1.setxSpeed(-b1.getxSpeed()); inWall = true; }
+     *
+     * if (b1.getY() - b1.getRadius() < 0) { b1.setY(b1.getRadius());
+     * b1.setySpeed(-b1.getySpeed()); inWall = true; } else if (b1.getY() +
+     * b1.getRadius() > CollectionOfBalls.WINDOWHEIGHT) {
+     * b1.setY(CollectionOfBalls.WINDOWHEIGHT - b1.getRadius());
+     * b1.setySpeed(-b1.getySpeed()); inWall = true; }
+     *
+     * return inWall; }
+     */
 
 }
